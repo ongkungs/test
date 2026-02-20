@@ -53,12 +53,15 @@
 
     #grid {
       position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) translateZ(-40px);
       display: grid;
       grid-template-columns: repeat(var(--cols), var(--size));
       grid-template-rows: repeat(var(--rows), var(--size));
       gap: var(--gap);
-      z-index: 1;
-      transform: translateZ(-40px);
+      z-index: 10;
+      /* Elevated to stay above the merged cube */
       transform-style: preserve-3d;
       contain: paint;
     }
@@ -128,21 +131,45 @@
       }
     }
 
+    @keyframes textBloom {
+      0% {
+        opacity: 0;
+        transform: translateZ(0) scale(0.9);
+        background: #000;
+        border-color: #050505;
+      }
+
+      30% {
+        opacity: 1;
+        transform: translateZ(55px) scale(1.02);
+        background: #1a1a1a;
+        /* Subtle peak brightness */
+        border-color: #333;
+        box-shadow: 0 0 8px rgba(255, 255, 255, 0.03);
+      }
+
+      100% {
+        opacity: 1;
+        transform: translateZ(50px) scale(1);
+        background: #0d0d0d;
+        border-color: #313131;
+        box-shadow: none;
+      }
+    }
+
     /* Pixel Text Effect */
-    .tile.text-active {
-      background: #1a1a1a !important;
-      border-color: #333 !important;
-      opacity: 0.8 !important;
-      box-shadow: 0 0 10px rgba(255, 255, 255, 0.05);
-      transition: all 1s cubic-bezier(0.34, 1.56, 0.64, 1);
+    #grid .tile.text-active {
+      animation: textBloom 2.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards !important;
+      z-index: 100 !important;
+      opacity: 1 !important;
     }
 
     .hover-ready .tile.text-active:hover {
-      background: #333 !important;
-      border-color: #666 !important;
+      background: #141414 !important;
+      border-color: #333 !important;
       opacity: 1 !important;
-      transform: translateZ(30px) scale(1.15);
-      box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+      transform: translateZ(70px) scale(1.1) !important;
+      box-shadow: 0 0 15px rgba(255, 255, 255, 0.05);
     }
 
     .cube-container {
@@ -154,6 +181,18 @@
       transform: scale(2.2);
       will-change: transform;
       animation: dropAndImpact 1s cubic-bezier(0.8, 0, 1, 1) 2.4s forwards;
+      transition: transform 1.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 1.2s ease;
+    }
+
+    /* Sink behind grid after impact as requested */
+    .cube-container.merged {
+      transform: scale(1) translateZ(-200px) !important;
+      opacity: 0.1;
+      /* More transparent to stay out of the way */
+      filter: blur(8px);
+      pointer-events: none;
+      z-index: 0;
+      /* Move behind the grid */
     }
 
     .layer {
@@ -320,12 +359,13 @@
     const grid = document.getElementById('grid');
     const cube = document.getElementById('cube');
     const tileDim = 68;
+    let cols, rows;
 
     function init() {
       // Add buffer to ensure it exceeds screen size for all resolutions
-      let cols = Math.ceil(window.innerWidth / tileDim) + 4;
+      cols = Math.ceil(window.innerWidth / tileDim) + 4;
       if (cols % 2 === 0) cols++;
-      let rows = Math.ceil(window.innerHeight / tileDim) + 4;
+      rows = Math.ceil(window.innerHeight / tileDim) + 4;
       if (rows % 2 === 0) rows++;
 
       document.documentElement.style.setProperty('--cols', cols);
@@ -343,13 +383,10 @@
         const tile = document.createElement('div');
         tile.className = 'tile';
 
-        if (x >= centerX - 1 && x <= centerX + 1 && y >= centerY - 1 && y <= centerY + 1) {
-          tile.style.cssText = "opacity: 0 !important; visibility: hidden;";
-        } else {
-          // Move stagger logic to CSS for 60fps performance
-          const delay = (distance - 1.5) * 0.07 + 0.1; // 100ms impact delay
-          tile.style.setProperty('--d', `${delay.toFixed(3)}s`);
-        }
+        // Stagger logic for 60fps performance
+        const delay = (distance - 1.5) * 0.07 + 0.1; // 100ms impact delay
+        tile.style.setProperty('--d', `${delay.toFixed(3)}s`);
+
         fragment.appendChild(tile);
       }
       grid.innerHTML = '';
@@ -364,30 +401,28 @@
       // Instant trigger: Browser handles the stagger via the --d CSS variable.
       grid.classList.add('shockwave-active');
 
-      // Enable hover effects after the shockwave animation finishes (approx 1.8s)
+      // Enable hover effects and text reveal after shockwave settles (1.8s) + a 1s delay
       setTimeout(() => {
         document.body.classList.add('hover-ready');
         showPixelText();
-      }, 1800);
+      }, 2000);
     }
 
     function showPixelText() {
-      const cols = parseInt(document.documentElement.style.getPropertyValue('--cols'));
-      const rows = parseInt(document.documentElement.style.getPropertyValue('--rows'));
       const tiles = document.querySelectorAll('.tile');
 
       // 3x5 Pixel Font for "ONGKUNG"
       const chars = {
         'O': [[0, 0], [1, 0], [2, 0], [0, 1], [2, 1], [0, 2], [2, 2], [0, 3], [2, 3], [0, 4], [1, 4], [2, 4]],
-        'N': [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4], [1, 1], [2, 0], [2, 1], [2, 2], [2, 3], [2, 4]],
-        'G': [[0, 0], [1, 0], [2, 0], [0, 1], [0, 2], [1, 2], [2, 2], [0, 3], [2, 3], [0, 4], [1, 4], [2, 4]],
+        'N': [[0, 0], [1, 0], [2, 0], [0, 1], [2, 1], [0, 2], [2, 2], [0, 3], [2, 3], [0, 4], [2, 4]],
+        'G': [[0, 0], [1, 0], [2, 0], [0, 1], [0, 2], [2, 2], [0, 3], [2, 3], [0, 4], [1, 4], [2, 4]],
         'K': [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4], [1, 2], [2, 0], [2, 1], [2, 3], [2, 4]],
         'U': [[0, 0], [0, 1], [0, 2], [0, 3], [2, 0], [2, 1], [2, 2], [2, 3], [0, 4], [1, 4], [2, 4]],
       };
 
       const word = "ONGKUNG";
       const startX = Math.floor((cols - (word.length * 4 - 1)) / 2);
-      const startY = Math.floor(rows / 2) - 6; // Positioned above the center cube
+      const startY = Math.floor((rows - 5) / 2); // Perfectly centered vertically
 
       word.split('').forEach((char, index) => {
         const charMap = chars[char];
@@ -400,9 +435,10 @@
           if (gridX >= 0 && gridX < cols && gridY >= 0 && gridY < rows) {
             const tileIndex = gridY * cols + gridX;
             if (tiles[tileIndex]) {
+              const diagonalIndex = (offset + px) + (4 - py); // diagonal from bottom-left
               setTimeout(() => {
                 tiles[tileIndex].classList.add('text-active');
-              }, 500 + (index * 100)); // Staggered appearance
+              }, 500 + (diagonalIndex * 60));
             }
           }
         });
