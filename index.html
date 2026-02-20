@@ -13,10 +13,10 @@
       --match-color: #000000;
       --match-border: #141414;
       --cube-start: #141414;
-      /* More aggressive responsive sizing */
-      --size: clamp(16px, 6vw, 64px);
-      --radius: clamp(2px, 1vw, 8px);
-      --gap: clamp(1px, 0.3vw, 4px);
+      /* Optimize for performance: larger tiles on mobile = fewer elements */
+      --size: clamp(32px, 8vw, 64px);
+      --radius: clamp(4px, 1.5vw, 8px);
+      --gap: clamp(2px, 0.5vw, 4px);
     }
 
     * {
@@ -74,6 +74,8 @@
       will-change: transform, opacity;
       /* Boost performance */
       backface-visibility: hidden;
+      transform: translate3d(0, 0, 0);
+      /* Force Hardware Acceleration */
       transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275),
         background 0.4s ease,
         border-color 0.4s ease;
@@ -101,31 +103,37 @@
 
     @keyframes tileRise {
       0% {
-        transform: translateZ(0);
+        transform: translate3d(0, 0, 0);
         opacity: 0.2;
         background: var(--grid-init);
       }
 
       15% {
-        transform: translateZ(75px);
-        /* Higher overshoot for the bloom */
+        transform: translate3d(0, 0, 75px);
         background: #444;
-        /* Pronounced grey blink */
         opacity: 1;
         border-color: #666;
       }
 
       40% {
         background: #111;
-        /* Settle back towards dark */
       }
 
       100% {
-        transform: translateZ(40px);
+        transform: translate3d(0, 0, 40px);
         background: var(--match-color);
         opacity: 1;
         border-color: var(--match-border);
       }
+    }
+
+    /* Lighter animation for mobile */
+    .mobile-perf .tile {
+      animation-duration: 1.2s !important;
+    }
+
+    .mobile-perf .tileRise {
+      transform: translateZ(40px) !important;
     }
 
     @keyframes textBloom {
@@ -365,10 +373,18 @@
       const tileTotal = temp.offsetWidth + parseFloat(getComputedStyle(temp).marginLeft);
       document.body.removeChild(temp);
 
-      cols = Math.ceil(window.innerWidth / tileTotal) + 2;
+      const isMobile = window.innerWidth < 768;
+      const buffer = isMobile ? 0 : 2;
+      const calcMethod = isMobile ? Math.floor : Math.ceil;
+
+      cols = calcMethod(window.innerWidth / tileTotal) + buffer;
       if (cols % 2 === 0) cols++;
-      rows = Math.ceil(window.innerHeight / tileTotal) + 2;
+      rows = calcMethod(window.innerHeight / tileTotal) + buffer;
       if (rows % 2 === 0) rows++;
+
+      if (isMobile) {
+        document.body.classList.add('mobile-perf');
+      }
 
       document.documentElement.style.setProperty('--cols', cols);
       document.documentElement.style.setProperty('--rows', rows);
@@ -377,6 +393,10 @@
       const centerY = Math.floor(rows / 2);
 
       const fragment = document.createDocumentFragment();
+
+      // On mobile, use a lighter staggering to save CPU
+      const staggerFactor = isMobile ? 0.04 : 0.07;
+
       for (let i = 0; i < cols * rows; i++) {
         const x = i % cols;
         const y = Math.floor(i / cols);
@@ -385,8 +405,7 @@
         const tile = document.createElement('div');
         tile.className = 'tile';
 
-        // Stagger logic for 60fps performance
-        const delay = (distance - 1.5) * 0.07 + 0.1; // 100ms impact delay
+        const delay = (distance - 1.5) * staggerFactor + 0.1;
         tile.style.setProperty('--d', `${delay.toFixed(3)}s`);
 
         fragment.appendChild(tile);
