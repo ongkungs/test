@@ -10,17 +10,13 @@
       --bg: #000;
       --grid-init: #050505;
       --grid-border: #0a0a0a;
-
-      /* END COLOR (Pure Black) */
       --match-color: #000000;
-      --match-border: #0a0a0a;
-      /* Updated to match --grid-border exactly */
-
-      /* START COLOR (Gray) */
+      --match-border: #141414;
       --cube-start: #141414;
-      --size: 64px;
-      --radius: 10px;
-      --gap: 4px;
+      /* More aggressive responsive sizing */
+      --size: clamp(16px, 6vw, 64px);
+      --radius: clamp(2px, 1vw, 8px);
+      --gap: clamp(1px, 0.3vw, 4px);
     }
 
     * {
@@ -51,17 +47,18 @@
       perspective: 1500px;
     }
 
+
+
     #grid {
       position: absolute;
       top: 50%;
       left: 50%;
-      transform: translate(-50%, -50%) translateZ(-40px);
+      transform: translate3d(-50%, -50%, -40px);
       display: grid;
       grid-template-columns: repeat(var(--cols), var(--size));
       grid-template-rows: repeat(var(--rows), var(--size));
       gap: var(--gap);
       z-index: 10;
-      /* Elevated to stay above the merged cube */
       transform-style: preserve-3d;
       contain: paint;
     }
@@ -151,8 +148,8 @@
       100% {
         opacity: 1;
         transform: translateZ(50px) scale(1);
-        background: #0d0d0d;
-        border-color: #313131;
+        background: #bbbbbb;
+        border-color: #646464;
         box-shadow: none;
       }
     }
@@ -178,7 +175,8 @@
       width: calc(var(--size) * 3 + (var(--gap) * 2));
       height: calc(var(--size) * 3 + (var(--gap) * 2));
       transform-style: preserve-3d;
-      transform: scale(2.2);
+      transform: scale(min(2.2, 35vw / 12px));
+      /* Match cube to screen */
       will-change: transform;
       animation: dropAndImpact 1s cubic-bezier(0.8, 0, 1, 1) 2.4s forwards;
       transition: transform 1.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 1.2s ease;
@@ -186,13 +184,11 @@
 
     /* Sink behind grid after impact as requested */
     .cube-container.merged {
-      transform: scale(1) translateZ(-200px) !important;
+      transform: scale(min(0.5, 20vw / 12px)) translateZ(-200px) !important;
       opacity: 0.1;
-      /* More transparent to stay out of the way */
       filter: blur(8px);
       pointer-events: none;
       z-index: 0;
-      /* Move behind the grid */
     }
 
     .layer {
@@ -358,14 +354,20 @@
   <script>
     const grid = document.getElementById('grid');
     const cube = document.getElementById('cube');
-    const tileDim = 68;
     let cols, rows;
 
     function init() {
-      // Add buffer to ensure it exceeds screen size for all resolutions
-      cols = Math.ceil(window.innerWidth / tileDim) + 4;
+      // Get computed tile size including gap
+      const temp = document.createElement('div');
+      temp.style.width = 'var(--size)';
+      temp.style.marginLeft = 'var(--gap)';
+      document.body.appendChild(temp);
+      const tileTotal = temp.offsetWidth + parseFloat(getComputedStyle(temp).marginLeft);
+      document.body.removeChild(temp);
+
+      cols = Math.ceil(window.innerWidth / tileTotal) + 2;
       if (cols % 2 === 0) cols++;
-      rows = Math.ceil(window.innerHeight / tileDim) + 4;
+      rows = Math.ceil(window.innerHeight / tileTotal) + 2;
       if (rows % 2 === 0) rows++;
 
       document.documentElement.style.setProperty('--cols', cols);
@@ -392,6 +394,7 @@
       grid.innerHTML = '';
       grid.appendChild(fragment);
 
+
       setTimeout(() => cube.classList.add('dropping'), 2400);
       setTimeout(triggerImpact, 3500);
     }
@@ -410,8 +413,6 @@
 
     function showPixelText() {
       const tiles = document.querySelectorAll('.tile');
-
-      // 3x5 Pixel Font for "ONGKUNG"
       const chars = {
         'O': [[0, 0], [1, 0], [2, 0], [0, 1], [2, 1], [0, 2], [2, 2], [0, 3], [2, 3], [0, 4], [1, 4], [2, 4]],
         'N': [[0, 0], [1, 0], [2, 0], [0, 1], [2, 1], [0, 2], [2, 2], [0, 3], [2, 3], [0, 4], [2, 4]],
@@ -420,30 +421,37 @@
         'U': [[0, 0], [0, 1], [0, 2], [0, 3], [2, 0], [2, 1], [2, 2], [2, 3], [0, 4], [1, 4], [2, 4]],
       };
 
-      const word = "ONGKUNG";
-      const startX = Math.floor((cols - (word.length * 4 - 1)) / 2);
-      const startY = Math.floor((rows - 5) / 2); // Perfectly centered vertically
+      const isSmall = window.innerWidth < 900;
+      const lines = isSmall ? ["ONG", "KUNG"] : ["ONGKUNG"];
 
-      word.split('').forEach((char, index) => {
-        const charMap = chars[char];
-        const offset = index * 4;
+      lines.forEach((word, lineIndex) => {
+        const lineOffset = isSmall ? (lineIndex * 7) : 0;
+        const totalLinePixels = word.length * 4 - 1;
+        const startX = Math.floor((cols - totalLinePixels) / 2);
+        const startY = Math.floor((rows - (isSmall ? 12 : 5)) / 2) + lineOffset;
 
-        charMap.forEach(([px, py]) => {
-          const gridX = startX + offset + px;
-          const gridY = startY + py;
+        word.split('').forEach((char, charIdx) => {
+          const charMap = chars[char];
+          const xOffset = charIdx * 4;
 
-          if (gridX >= 0 && gridX < cols && gridY >= 0 && gridY < rows) {
-            const tileIndex = gridY * cols + gridX;
-            if (tiles[tileIndex]) {
-              const diagonalIndex = (offset + px) + (4 - py); // diagonal from bottom-left
-              setTimeout(() => {
-                tiles[tileIndex].classList.add('text-active');
-              }, 500 + (diagonalIndex * 60));
+          charMap.forEach(([px, py]) => {
+            const gridX = startX + xOffset + px;
+            const gridY = startY + py;
+
+            if (gridX >= 0 && gridX < cols && gridY >= 0 && gridY < rows) {
+              const tileIndex = gridY * cols + gridX;
+              if (tiles[tileIndex]) {
+                const diagonalIndex = (charIdx * 4 + px) + (lineIndex * 7) + (4 - py);
+                setTimeout(() => {
+                  tiles[tileIndex].classList.add('text-active');
+                }, 500 + (diagonalIndex * 60));
+              }
             }
-          }
+          });
         });
       });
     }
+
 
     init();
     window.addEventListener('resize', () => location.reload());
