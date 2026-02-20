@@ -1,138 +1,417 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Void</title>
-    <style>
-        :root {
-            --bg: #000;
-            --tile: #0a0a0a;
-            --size: 35px;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smooth Drop Stealth Integration</title>
+  <style>
+    :root {
+      --bg: #000;
+      --grid-init: #050505;
+      --grid-border: #0a0a0a;
 
-        body {
-            margin: 0;
-            background: var(--bg);
-            height: 100vh;
-            width: 100vw;
-            overflow: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            perspective: 1000px;
-        }
+      /* END COLOR (Pure Black) */
+      --match-color: #000000;
+      --match-border: #0a0a0a;
+      /* Updated to match --grid-border exactly */
 
-        #grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, var(--size));
-            grid-template-rows: repeat(auto-fill, var(--size));
-            width: 100vw;
-            height: 100vh;
-            gap: 1px;
-        }
+      /* START COLOR (Gray) */
+      --cube-start: #141414;
+      --size: 64px;
+      --radius: 10px;
+      --gap: 4px;
+    }
 
-        .tile {
-            width: 100%;
-            height: 100%;
-            background: var(--tile);
-            border: 1px solid #151515;
-            box-sizing: border-box;
-            transform: scale(0);
-            will-change: transform;
-        }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
-        /* 3x3 Impact Block */
-        #cube {
-            position: absolute;
-            width: calc(var(--size) * 3);
-            height: calc(var(--size) * 3);
-            border: 2px solid #fff;
-            background: #000;
-            z-index: 100;
-            transform: translateZ(800px);
-            transition: transform 0.8s cubic-bezier(0.7, 0, 0.3, 1), opacity 0.4s;
-            pointer-events: none;
-        }
-    </style>
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: var(--bg);
+    }
+
+    body {
+      margin: 0;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: var(--bg);
+      overflow: hidden;
+      perspective: 1500px;
+    }
+
+    #grid {
+      position: absolute;
+      display: grid;
+      grid-template-columns: repeat(var(--cols), var(--size));
+      grid-template-rows: repeat(var(--rows), var(--size));
+      gap: var(--gap);
+      z-index: 1;
+      transform: translateZ(-40px);
+      transform-style: preserve-3d;
+      contain: paint;
+    }
+
+    .tile {
+      width: var(--size);
+      height: var(--size);
+      background: var(--grid-init);
+      border: 1px solid var(--grid-border);
+      box-sizing: border-box;
+      border-radius: var(--radius);
+      opacity: 0.2;
+      will-change: transform, opacity;
+      /* Boost performance */
+      backface-visibility: hidden;
+      transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+        background 0.4s ease,
+        border-color 0.4s ease;
+    }
+
+    .hover-ready .tile:hover {
+      transform: translateZ(15px) scale(1.02);
+      background: #0d0d0d !important;
+      border-color: #222 !important;
+      opacity: 1 !important;
+      cursor: pointer;
+    }
+
+    .hover-ready .layer div:hover {
+      background: #1a1a1a !important;
+      border-color: #333 !important;
+      cursor: pointer;
+      transform: translateZ(2px);
+    }
+
+    /* Wave trigger: Instant parent class update + CSS variable stagger */
+    #grid.shockwave-active .tile {
+      animation: tileRise 1.8s cubic-bezier(0.34, 1.56, 0.64, 1) var(--d) forwards;
+    }
+
+    @keyframes tileRise {
+      0% {
+        transform: translateZ(0);
+        opacity: 0.2;
+        background: var(--grid-init);
+      }
+
+      15% {
+        transform: translateZ(75px);
+        /* Higher overshoot for the bloom */
+        background: #444;
+        /* Pronounced grey blink */
+        opacity: 1;
+        border-color: #666;
+      }
+
+      40% {
+        background: #111;
+        /* Settle back towards dark */
+      }
+
+      100% {
+        transform: translateZ(40px);
+        background: var(--match-color);
+        opacity: 1;
+        border-color: var(--match-border);
+      }
+    }
+
+    /* Pixel Text Effect */
+    .tile.text-active {
+      background: #1a1a1a !important;
+      border-color: #333 !important;
+      opacity: 0.8 !important;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.05);
+      transition: all 1s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .hover-ready .tile.text-active:hover {
+      background: #333 !important;
+      border-color: #666 !important;
+      opacity: 1 !important;
+      transform: translateZ(30px) scale(1.15);
+      box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+    }
+
+    .cube-container {
+      position: absolute;
+      z-index: 100;
+      width: calc(var(--size) * 3 + (var(--gap) * 2));
+      height: calc(var(--size) * 3 + (var(--gap) * 2));
+      transform-style: preserve-3d;
+      transform: scale(2.2);
+      will-change: transform;
+      animation: dropAndImpact 1s cubic-bezier(0.8, 0, 1, 1) 2.4s forwards;
+    }
+
+    .layer {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      gap: var(--gap);
+      transform-style: preserve-3d;
+    }
+
+    .layer div {
+      border-radius: var(--radius);
+      box-sizing: border-box;
+      border: 1px solid #222;
+      background: var(--cube-start);
+      will-change: transform, background;
+      backface-visibility: hidden;
+      /* SYNCED COLOR CHANGE */
+      transition: background 1s cubic-bezier(0.8, 0, 1, 1),
+        border-color 1s cubic-bezier(0.8, 0, 1, 1);
+    }
+
+    /* Sink Transition: Cube darkens and thins out during the fall to match the grid's starting look */
+    .dropping .layer div {
+      background: var(--grid-init);
+      border-color: var(--grid-border);
+    }
+
+    .back-layer {
+      --z: -12px;
+      transform: translateZ(var(--z));
+      filter: brightness(0.3);
+      animation: rotateFull 2s cubic-bezier(0.65, 0, 0.35, 1) 0.3s forwards;
+    }
+
+    .middle-layer {
+      --z: 0px;
+      transform: translateZ(var(--z));
+      filter: brightness(0.6);
+      animation: rotateFull 2s cubic-bezier(0.65, 0, 0.35, 1) 0.15s forwards;
+    }
+
+    .front-layer {
+      --z: 12px;
+      transform: translateZ(var(--z));
+      animation: rotateFull 2s cubic-bezier(0.65, 0, 0.35, 1) 0s forwards;
+    }
+
+    /* Impact Trigger (3.5s): The cube joins the energy wave */
+    .merged .layer div {
+      animation: cubeImpactFlare 1.8s cubic-bezier(0.34, 1.56, 0.64, 1) 150ms forwards;
+      box-shadow: none;
+      transform-origin: center center;
+    }
+
+    /* Flatten all layers into the integrated plane */
+    .merged .front-layer {
+      transform: translateZ(0px) rotate(360deg) !important;
+    }
+
+    .merged .middle-layer,
+    .merged .back-layer {
+      display: none;
+    }
+
+    @keyframes rotateFull {
+      0% {
+        transform: translateZ(var(--z, 0px)) rotate(0deg);
+      }
+
+      100% {
+        transform: translateZ(var(--z, 0px)) rotate(360deg);
+      }
+    }
+
+    @keyframes dropAndImpact {
+      0% {
+        transform: scale(2.2);
+      }
+
+      73% {
+        transform: scale(1) translateZ(0);
+      }
+
+      85% {
+        transform: scale(0.97) translateZ(-5px);
+      }
+
+      100% {
+        transform: scale(1) translateZ(0);
+      }
+    }
+
+    /* Synchronized color flare for the cube to match center tiles */
+    @keyframes cubeImpactFlare {
+      0% {
+        background: var(--grid-init);
+        border-color: var(--grid-border);
+      }
+
+      15% {
+        background: #444;
+        /* Match the shockwave's grey blink peak */
+        border-color: #666;
+      }
+
+      40% {
+        background: #111;
+        /* Match the settle phase */
+      }
+
+      100% {
+        background: var(--match-color);
+        border-color: var(--match-border);
+      }
+    }
+  </style>
 </head>
+
 <body>
 
-    <div id="cube"></div>
-    <div id="grid"></div>
+  <div id="grid"></div>
 
-    <script>
-        const grid = document.getElementById('grid');
-        const cube = document.getElementById('cube');
-        let tiles = [];
-        let isActive = false;
+  <div class="cube-container" id="cube">
+    <!-- 3 Layers of 9 cubies each -->
+    <div class="layer back-layer">
+      <div></div>
+      <div></div>
+      <div></div>
+      <div></div>
+      <div></div>
+      <div></div>
+      <div></div>
+      <div></div>
+      <div></div>
+    </div>
+    <div class="layer middle-layer">
+      <div></div>
+      <div></div>
+      <div></div>
+      <div></div>
+      <div></div>
+      <div></div>
+      <div></div>
+      <div></div>
+      <div></div>
+    </div>
+    <div class="layer front-layer">
+      <div></div>
+      <div></div>
+      <div></div>
+      <div></div>
+      <div></div>
+      <div></div>
+      <div></div>
+      <div></div>
+      <div></div>
+    </div>
+  </div>
 
-        function init() {
-            const cols = Math.ceil(window.innerWidth / 36);
-            const rows = Math.ceil(window.innerHeight / 36);
-            
-            for (let i = 0; i < cols * rows; i++) {
-                const tile = document.createElement('div');
-                tile.className = 'tile';
-                grid.appendChild(tile);
-                tiles.push(tile);
+  <script>
+    const grid = document.getElementById('grid');
+    const cube = document.getElementById('cube');
+    const tileDim = 68;
+
+    function init() {
+      // Add buffer to ensure it exceeds screen size for all resolutions
+      let cols = Math.ceil(window.innerWidth / tileDim) + 4;
+      if (cols % 2 === 0) cols++;
+      let rows = Math.ceil(window.innerHeight / tileDim) + 4;
+      if (rows % 2 === 0) rows++;
+
+      document.documentElement.style.setProperty('--cols', cols);
+      document.documentElement.style.setProperty('--rows', rows);
+
+      const centerX = Math.floor(cols / 2);
+      const centerY = Math.floor(rows / 2);
+
+      const fragment = document.createDocumentFragment();
+      for (let i = 0; i < cols * rows; i++) {
+        const x = i % cols;
+        const y = Math.floor(i / cols);
+        const distance = Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2));
+
+        const tile = document.createElement('div');
+        tile.className = 'tile';
+
+        if (x >= centerX - 1 && x <= centerX + 1 && y >= centerY - 1 && y <= centerY + 1) {
+          tile.style.cssText = "opacity: 0 !important; visibility: hidden;";
+        } else {
+          // Move stagger logic to CSS for 60fps performance
+          const delay = (distance - 1.5) * 0.07 + 0.1; // 100ms impact delay
+          tile.style.setProperty('--d', `${delay.toFixed(3)}s`);
+        }
+        fragment.appendChild(tile);
+      }
+      grid.innerHTML = '';
+      grid.appendChild(fragment);
+
+      setTimeout(() => cube.classList.add('dropping'), 2400);
+      setTimeout(triggerImpact, 3500);
+    }
+
+    function triggerImpact() {
+      cube.classList.add('merged');
+      // Instant trigger: Browser handles the stagger via the --d CSS variable.
+      grid.classList.add('shockwave-active');
+
+      // Enable hover effects after the shockwave animation finishes (approx 1.8s)
+      setTimeout(() => {
+        document.body.classList.add('hover-ready');
+        showPixelText();
+      }, 1800);
+    }
+
+    function showPixelText() {
+      const cols = parseInt(document.documentElement.style.getPropertyValue('--cols'));
+      const rows = parseInt(document.documentElement.style.getPropertyValue('--rows'));
+      const tiles = document.querySelectorAll('.tile');
+
+      // 3x5 Pixel Font for "ONGKUNG"
+      const chars = {
+        'O': [[0, 0], [1, 0], [2, 0], [0, 1], [2, 1], [0, 2], [2, 2], [0, 3], [2, 3], [0, 4], [1, 4], [2, 4]],
+        'N': [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4], [1, 1], [2, 0], [2, 1], [2, 2], [2, 3], [2, 4]],
+        'G': [[0, 0], [1, 0], [2, 0], [0, 1], [0, 2], [1, 2], [2, 2], [0, 3], [2, 3], [0, 4], [1, 4], [2, 4]],
+        'K': [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4], [1, 2], [2, 0], [2, 1], [2, 3], [2, 4]],
+        'U': [[0, 0], [0, 1], [0, 2], [0, 3], [2, 0], [2, 1], [2, 2], [2, 3], [0, 4], [1, 4], [2, 4]],
+      };
+
+      const word = "ONGKUNG";
+      const startX = Math.floor((cols - (word.length * 4 - 1)) / 2);
+      const startY = Math.floor(rows / 2) - 6; // Positioned above the center cube
+
+      word.split('').forEach((char, index) => {
+        const charMap = chars[char];
+        const offset = index * 4;
+
+        charMap.forEach(([px, py]) => {
+          const gridX = startX + offset + px;
+          const gridY = startY + py;
+
+          if (gridX >= 0 && gridX < cols && gridY >= 0 && gridY < rows) {
+            const tileIndex = gridY * cols + gridX;
+            if (tiles[tileIndex]) {
+              setTimeout(() => {
+                tiles[tileIndex].classList.add('text-active');
+              }, 500 + (index * 100)); // Staggered appearance
             }
-            setTimeout(intro, 500);
-        }
-
-        function intro() {
-            // Drop the block
-            cube.style.transform = "translateZ(-500px) scale(0)";
-            cube.style.opacity = "0";
-
-            const cX = window.innerWidth / 2;
-            const cY = window.innerHeight / 2;
-
-            tiles.forEach(tile => {
-                const r = tile.getBoundingClientRect();
-                const tCenter = r.left + 17;
-                const d = Math.hypot(cX - tCenter, cY - (r.top + 17));
-                
-                setTimeout(() => {
-                    tile.style.transition = "transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.5s";
-                    tile.style.transform = "translateZ(100px) scale(1.1)";
-                    tile.style.background = "#333";
-
-                    setTimeout(() => {
-                        tile.style.transform = "translateZ(0) scale(1)";
-                        tile.style.background = "var(--tile)";
-                        
-                        // Unlock hover after the ripple reaches 80% of screen
-                        if (d > window.innerWidth * 0.8) isActive = true;
-                    }, 600);
-                }, d * 0.5);
-            });
-        }
-
-        window.addEventListener('mousemove', (e) => {
-            if (!isActive) return;
-
-            // Use requestAnimationFrame for smooth performance
-            window.requestAnimationFrame(() => {
-                tiles.forEach(tile => {
-                    const r = tile.getBoundingClientRect();
-                    const d = Math.hypot(e.clientX - (r.left + 17), e.clientY - (r.top + 17));
-
-                    if (d < 160) {
-                        const p = 1 - (d / 160);
-                        tile.style.transition = "transform 0.1s ease-out";
-                        tile.style.transform = `translateZ(${-120 * p}px) scale(${1 - p * 0.15})`;
-                        tile.style.background = `rgb(${40 * p}, ${40 * p}, ${40 * p})`;
-                    } else {
-                        tile.style.transition = "transform 1s ease-out, background 1s";
-                        tile.style.transform = "translateZ(0) scale(1)";
-                        tile.style.background = "var(--tile)";
-                    }
-                });
-            });
+          }
         });
+      });
+    }
 
-        init();
-    </script>
+    init();
+    window.addEventListener('resize', () => location.reload());
+  </script>
 </body>
+
 </html>
