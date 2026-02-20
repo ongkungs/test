@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mono Void Impact</title>
+    <style>
+        :root {
+            --bg-color: #000000;
+            --tile-color: #0d0d0d;
+            --tile-size: 30px; /* Slightly smaller for more detail */
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: sans-serif;
+        }
+
+        #grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, var(--tile-size));
+            grid-template-rows: repeat(auto-fill, var(--tile-size));
+            width: 100vw;
+            height: 100vh;
+            gap: 1px; /* Sharp grid lines */
+            perspective: 1200px;
+        }
+
+        .tile {
+            width: var(--tile-size);
+            height: var(--tile-size);
+            background-color: var(--tile-color);
+            border: 1px solid #151515;
+            box-sizing: border-box;
+            /* Start hidden for the intro splash */
+            transform: scale(0);
+            transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.5s;
+            will-change: transform;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="grid"></div>
+
+    <script>
+        const grid = document.getElementById('grid');
+        const tileSize = 31; // Size + Gap
+        let tiles = [];
+        let isIntroPlaying = true;
+
+        function createGrid() {
+            grid.innerHTML = '';
+            tiles = [];
+            const columns = Math.ceil(window.innerWidth / tileSize);
+            const rows = Math.ceil(window.innerHeight / tileSize);
+            const totalTiles = columns * rows;
+
+            for (let i = 0; i < totalTiles; i++) {
+                const tile = document.createElement('div');
+                tile.classList.add('tile');
+                grid.appendChild(tile);
+                tiles.push(tile);
+            }
+            
+            // Trigger the cinematic impact
+            setTimeout(triggerImpactRipple, 400);
+        }
+
+        function triggerImpactRipple() {
+            const centerX = window.innerWidth / 2;
+            const centerY = window.innerHeight / 2;
+
+            tiles.forEach(tile => {
+                const rect = tile.getBoundingClientRect();
+                const tX = rect.left + rect.width / 2;
+                const tY = rect.top + rect.height / 2;
+                const distance = Math.hypot(centerX - tX, centerY - tY);
+                
+                // Speed of the ripple wave
+                const delay = distance * 1.5; 
+
+                // 1. Initial State: Objects appear close to screen
+                tile.style.transform = `translateZ(800px) scale(2)`;
+                
+                // 2. The Impact Sequence
+                setTimeout(() => {
+                    // Flash brighter on impact
+                    tile.style.backgroundColor = '#444';
+                    tile.style.transform = `translateZ(-150px) scale(0.9)`;
+
+                    // 3. Settle to default background grid
+                    setTimeout(() => {
+                        tile.style.transform = `translateZ(0px) scale(1)`;
+                        tile.style.backgroundColor = 'var(--tile-color)';
+                        
+                        // Unlock mouse hover after the ripple reaches the edges
+                        if (distance > window.innerWidth / 1.8) {
+                            isIntroPlaying = false;
+                        }
+                    }, 700);
+                }, delay);
+            });
+        }
+
+        window.addEventListener('mousemove', (e) => {
+            if (isIntroPlaying) return;
+
+            const mouseX = e.clientX;
+            const mouseY = e.clientY;
+
+            tiles.forEach(tile => {
+                const rect = tile.getBoundingClientRect();
+                const tX = rect.left + rect.width / 2;
+                const tY = rect.top + rect.height / 2;
+                const distance = Math.hypot(mouseX - tX, mouseY - tY);
+                const maxDist = 160;
+                
+                if (distance < maxDist) {
+                    const proximity = 1 - (distance / maxDist);
+                    
+                    // Instant response for mouse
+                    tile.style.transition = "transform 0.1s ease-out, background-color 0.2s"; 
+                    // Sink effect
+                    tile.style.transform = `translateZ(${proximity * -120}px) scale(${1 - (proximity * 0.2)})`;
+                    // Very subtle highlight while sinking
+                    tile.style.backgroundColor = `rgb(${25 * proximity}, ${25 * proximity}, ${25 * proximity})`;
+                } else {
+                    // Gentle return to rest
+                    tile.style.transition = "transform 1s cubic-bezier(0.22, 1, 0.36, 1), background-color 1s";
+                    tile.style.transform = `translateZ(0px) scale(1)`;
+                    tile.style.backgroundColor = 'var(--tile-color)';
+                }
+            });
+        });
+
+        createGrid();
+        window.addEventListener('resize', () => {
+            isIntroPlaying = true;
+            createGrid();
+        });
+    </script>
+</body>
+</html>
